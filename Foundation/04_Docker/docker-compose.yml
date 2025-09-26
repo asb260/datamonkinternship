@@ -1,1 +1,67 @@
 
+version: '3.8'
+
+services:
+  # -----------------------------------------------------------------
+  # 1. Database Service (PostgreSQL)
+  # -----------------------------------------------------------------
+  db:
+    image: postgres:14-alpine
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: tododb
+    volumes:
+      # Persist data to prevent loss when container stops
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # -----------------------------------------------------------------
+  # 2. Backend Service (Flask API)
+  # -----------------------------------------------------------------
+  backend:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: todo_backend
+    restart: always
+    ports:
+      # Expose API on host port 5000
+      - "5000:5000"
+    environment:
+      # Credentials for connecting to the 'db' service
+      DB_HOST: db       # Use the service name as the hostname
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_NAME: tododb
+    depends_on:
+      # Ensure the database is healthy before starting the backend
+      db:
+        condition: service_healthy
+
+  # -----------------------------------------------------------------
+  # 3. Frontend Service (Static HTML/JS served by Nginx)
+  # -----------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: todo_frontend
+    ports:
+      # Expose Frontend on host port 3000
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  # Define the volume for persistent database storage
+  postgres_data:
+
+
+
